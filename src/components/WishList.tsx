@@ -236,7 +236,8 @@ export default function WishList() {
       const { data: userData, error: userError } = await supabase.auth.getUser()
       if (userError || !userData?.user) {
         console.error('User not authenticated:', userError?.message)
-        router.push('/auth')
+        const currentUrl = `${window.location.pathname}${window.location.search}`
+        router.push(`/auth?redirect=${encodeURIComponent(currentUrl)}`)
         return
       }
 

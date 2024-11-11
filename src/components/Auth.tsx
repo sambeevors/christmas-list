@@ -1,106 +1,141 @@
 'use client'
 
-import { useState } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import Link from 'next/link'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowLeft } from 'lucide-react'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import { useRouter } from 'next/navigation'
+import { z } from 'zod'
+import { supabase } from '../lib/supabaseClient'
+
+// Define the schema using zod
+const authSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters long'),
+})
+
+type AuthFormData = z.infer<typeof authSchema>
 
 export default function Auth() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectUrl = searchParams.get('redirect') || '/'
 
-  const handleSignIn = async () => {
+  // Initialize react-hook-form with zodResolver
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<AuthFormData>({
+    resolver: zodResolver(authSchema),
+  })
+
+  const handleSignIn = async (data: AuthFormData) => {
     const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+      email: data.email,
+      password: data.password,
     })
     if (error) {
       toast.error(error.message)
       console.warn('Error signing in:', error.message)
     } else {
       toast.success('Signed in successfully')
-      router.push('/')
+      router.push(redirectUrl)
     }
   }
 
-  const handleSignUp = async () => {
+  const handleSignUp = async (data: AuthFormData) => {
     const { error } = await supabase.auth.signUp({
-      email,
-      password,
+      email: data.email,
+      password: data.password,
     })
     if (error) {
       toast.error(error.message)
       console.warn('Error signing up:', error.message)
     } else {
       toast.success('Signed up successfully')
-      router.push('/')
+      router.push(redirectUrl)
     }
   }
 
   return (
     <div className="space-y-4 w-full">
       <h1 className="text-3xl font-bold mb-6">Sign In / Sign Up</h1>
-      <Link href="/" className="flex items-center gap-2 text-blue-500">
-        <ArrowLeft className="size-3" />
-        Back home
-      </Link>
       <Tabs defaultValue="signIn">
-        <TabsList className="mb-4">
-          <TabsTrigger value="signIn">Sign In</TabsTrigger>
-          <TabsTrigger value="signUp">Create Account</TabsTrigger>
+        <TabsList className="mb-4 w-full">
+          <TabsTrigger value="signIn" className="flex-grow">
+            Sign In
+          </TabsTrigger>
+          <TabsTrigger value="signUp" className="flex-grow">
+            Create Account
+          </TabsTrigger>
         </TabsList>
-        <TabsContent value="signIn" className="space-y-4">
-          <div>
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div>
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          <Button onClick={handleSignIn}>Sign In</Button>
+        <TabsContent value="signIn">
+          <form onSubmit={handleSubmit(handleSignIn)} className="space-y-4">
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="Email"
+                {...register('email')}
+              />
+              {errors.email && (
+                <p className="text-red-500">{errors.email.message}</p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Password"
+                {...register('password')}
+              />
+              {errors.password && (
+                <p className="text-red-500">{errors.password.message}</p>
+              )}
+            </div>
+            <Button type="submit" className="w-full">
+              Sign In
+            </Button>
+          </form>
         </TabsContent>
-        <TabsContent value="signUp" className="space-y-4">
-          <div>
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div>
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          <Button onClick={handleSignUp}>Create Account</Button>
+        <TabsContent value="signUp">
+          <form onSubmit={handleSubmit(handleSignUp)} className="space-y-4">
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="Email"
+                {...register('email')}
+              />
+              {errors.email && (
+                <p className="text-red-500">{errors.email.message}</p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Password"
+                {...register('password')}
+              />
+              {errors.password && (
+                <p className="text-red-500">{errors.password.message}</p>
+              )}
+            </div>
+            <Button type="submit" className="w-full">
+              Create Account
+            </Button>
+          </form>
         </TabsContent>
       </Tabs>
     </div>
