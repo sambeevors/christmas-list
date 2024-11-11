@@ -1,17 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
-import { User } from '@supabase/supabase-js'
-import { useRouter } from 'next/navigation'
-import { Plus } from 'lucide-react'
-import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import { User } from '@supabase/supabase-js'
+import { Plus } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
+import { z } from 'zod'
+import { supabase } from '../lib/supabaseClient'
 
 const wishlistSchema = z.object({
   name: z.string().min(1, 'Wishlist name is required'),
@@ -66,9 +66,9 @@ export default function CreateWishList() {
   }
 
   return (
-    <div className="space-y-4 w-full">
-      <h1 className="text-2xl font-bold">Create Wishlist</h1>
-      <form onSubmit={handleSubmit(onSubmit)}>
+    <div className="w-full">
+      <h1 className="text-2xl font-bold mb-4">Create Wishlist</h1>
+      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
         <div>
           <Label htmlFor="wishlist-name">Wishlist Name</Label>
           <Input id="wishlist-name" {...register('name')} />

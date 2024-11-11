@@ -4,25 +4,25 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
-import { Link as LinkIcon, Plus, Share2, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { toast } from 'sonner'
-import { supabase } from '../lib/supabaseClient'
-import { useRouter, useSearchParams } from 'next/navigation'
-import {
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-} from '@/components/ui/select'
-import { SelectValue } from '@radix-ui/react-select'
-import Link from 'next/link'
-import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { SelectValue } from '@radix-ui/react-select'
+import { Link as LinkIcon, Plus, Share2, Trash2 } from 'lucide-react'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { toast } from 'sonner'
 import { z } from 'zod'
+import { supabase } from '../lib/supabaseClient'
 
 type Item = {
   id: string
@@ -101,7 +101,7 @@ function AddItemForm({ addItem }: { addItem: (item: Item) => void }) {
         <Label htmlFor="notes">Notes</Label>
         <Textarea id="notes" {...register('notes')} />
       </div>
-      <Button type="submit" disabled={isSubmitting}>
+      <Button type="submit" disabled={isSubmitting} className="w-full">
         <Plus className="w-4 h-4" />
         {isSubmitting ? 'Adding...' : 'Add Item'}
       </Button>
@@ -114,11 +114,15 @@ function Item({
   togglePurchased,
   removeItem,
   showPurchased,
+  currentWishlist,
+  currentUser,
 }: {
   item: Item
   togglePurchased: (id: string) => void
   removeItem: (id: string) => void
   showPurchased: boolean
+  currentWishlist: Wishlist | null
+  currentUser: string | null
 }) {
   console.log('Rendering item with OG Image:', item.og_image)
   return (
@@ -170,13 +174,15 @@ function Item({
                 <span className="text-sm text-gray-500">Purchased</span>
               </div>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => removeItem(item.id)}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
+            {currentWishlist?.user_id === currentUser && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => removeItem(item.id)}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            )}
           </div>
         </div>
       </CardContent>
@@ -189,11 +195,15 @@ function ItemList({
   togglePurchased,
   removeItem,
   showPurchased,
+  currentWishlist,
+  currentUser,
 }: {
   items: Item[]
   togglePurchased: (id: string) => void
   removeItem: (id: string) => void
   showPurchased: boolean
+  currentWishlist: Wishlist | null
+  currentUser: string | null
 }) {
   return (
     <div>
@@ -204,6 +214,8 @@ function ItemList({
           togglePurchased={togglePurchased}
           removeItem={removeItem}
           showPurchased={showPurchased}
+          currentWishlist={currentWishlist}
+          currentUser={currentUser}
         />
       ))}
     </div>
@@ -250,6 +262,8 @@ export default function WishList() {
             .eq('id', wishlistId)
             .single()
 
+          console.log('wishlistData', wishlistData)
+
           if (wishlistError) {
             console.error('Error fetching wishlist:', wishlistError.message)
             router.push('/create-wishlist')
@@ -257,12 +271,19 @@ export default function WishList() {
           }
 
           if (wishlistData) {
-            setWishlists((prev) => [...prev, wishlistData])
+            setWishlists(() => [
+              ...data,
+              {
+                ...wishlistData,
+                name: wishlistData.name + ' (Shared)',
+              },
+            ])
             currentWishlistData = wishlistData
           }
+        } else {
+          setWishlists(data || [])
         }
 
-        setWishlists(data || [])
         if (!currentWishlistData) {
           router.push('/create-wishlist')
         } else {
@@ -387,21 +408,28 @@ export default function WishList() {
             ))}
           </SelectContent>
         </Select>
-        <Button asChild size="icon">
+        <Button asChild className="w-full sm:w-auto sm:px-2.5">
           <Link href="/create-wishlist">
             <Plus className="w-4 h-4" />
-            <span className="sr-only">Create New Wishlist</span>
+            <span className="sm:sr-only">Create New Wishlist</span>
           </Link>
         </Button>
       </div>
       <Tabs defaultValue="view">
-        <TabsList className="mb-4">
-          <TabsTrigger value="view">View</TabsTrigger>
+        <TabsList className="mb-4 w-full">
+          <TabsTrigger value="view" className="flex-grow">
+            View
+          </TabsTrigger>
           {currentWishlist?.user_id === currentUser && (
-            <TabsTrigger value="edit">Edit</TabsTrigger>
+            <TabsTrigger value="edit" className="flex-grow">
+              Edit
+            </TabsTrigger>
           )}
         </TabsList>
         <TabsContent value="view">
+          <h2 className="text-lg font-semibold mb-2">
+            {currentWishlist?.name}
+          </h2>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
             <div className="flex items-center space-x-2">
               <Switch
@@ -421,6 +449,8 @@ export default function WishList() {
             togglePurchased={togglePurchased}
             removeItem={removeItem}
             showPurchased={showPurchased}
+            currentWishlist={currentWishlist}
+            currentUser={currentUser}
           />
         </TabsContent>
         {currentWishlist?.user_id === currentUser && (
