@@ -26,10 +26,8 @@ export async function GET(request: Request) {
 
     if (ogImage) {
       const ogImageUrl = new URL(ogImage, url).href
-      console.log('OG Image URL:', ogImageUrl)
       return NextResponse.json({ ogImage: ogImageUrl })
     } else {
-      console.log('No OG Image found')
       return NextResponse.json({ ogImage: null })
     }
   } catch (error) {

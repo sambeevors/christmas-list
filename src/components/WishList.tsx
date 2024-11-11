@@ -43,7 +43,7 @@ async function fetchOgImage(url: string): Promise<string | null> {
   try {
     const res = await fetch(`/api/og-image?url=${encodeURIComponent(url)}`)
     const data = await res.json()
-    console.log('Fetched OG Image:', data.ogImage)
+
     return data.ogImage || null
   } catch (error) {
     console.error('Error fetching OG image:', error)
@@ -124,7 +124,6 @@ function Item({
   currentWishlist: Wishlist | null
   currentUser: string | null
 }) {
-  console.log('Rendering item with OG Image:', item.og_image)
   return (
     <Card
       className={`mb-4 ${item.purchased && showPurchased ? 'opacity-50' : ''}`}
@@ -262,8 +261,6 @@ export default function WishList() {
             .select('*')
             .eq('id', wishlistId)
             .single()
-
-          console.log('wishlistData', wishlistData)
 
           if (wishlistError) {
             console.error('Error fetching wishlist:', wishlistError.message)
