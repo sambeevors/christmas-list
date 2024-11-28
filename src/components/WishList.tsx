@@ -31,6 +31,7 @@ type Item = {
   notes?: string
   purchased: boolean
   og_image?: string
+  created_at?: string
 }
 
 type Wishlist = {
@@ -129,59 +130,64 @@ function Item({
       className={`mb-4 ${item.purchased && showPurchased ? 'opacity-50' : ''}`}
     >
       <CardContent className="p-4">
-        <div className="flex justify-between items-start gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-4 relative">
           {item.og_image ? (
-            <div className="flex-shrink-0 w-24 h-24 relative overflow-hidden rounded-md">
+            <div className="w-full sm:w-24 h-48 sm:h-24 relative overflow-hidden rounded-md flex-shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={item.og_image}
                 alt={`Image for ${item.name}`}
-                className="absolute inset-0 object-cover"
+                className="absolute inset-0 w-full h-full object-cover"
               />
             </div>
           ) : (
-            <div className="flex-shrink-0 w-24 h-24 bg-gray-200 rounded-md flex items-center justify-center">
+            <div className="w-full sm:w-24 h-48 sm:h-24 bg-gray-200 rounded-md flex items-center justify-center flex-shrink-0">
               <span className="text-gray-500">No Image</span>
             </div>
           )}
-          <div
-            className={`flex-grow ${
-              item.purchased && showPurchased ? 'line-through' : ''
-            }`}
-          >
-            <h3 className="text-lg font-semibold">{item.name}</h3>
-            {item.link && (
-              <a
-                href={item.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-500 hover:underline flex items-center"
-              >
-                <LinkIcon className="w-4 h-4 mr-1" />
-                View Item
-              </a>
-            )}
-            {item.notes && <p className="text-gray-600 mt-2">{item.notes}</p>}
-          </div>
-          <div className="flex items-center space-x-2">
-            {showPurchased && (
-              <div className="flex items-center space-x-2">
-                <Switch
-                  checked={item.purchased}
-                  onCheckedChange={() => togglePurchased(item.id)}
-                />
-                <span className="text-sm text-gray-500">Purchased</span>
-              </div>
-            )}
-            {currentWishlist?.user_id === currentUser && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => removeItem(item.id)}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            )}
+
+          <div className="flex flex-col sm:flex-row flex-grow gap-4 justify-between">
+            <div
+              className={`flex-grow ${
+                item.purchased && showPurchased ? 'line-through' : ''
+              }`}
+            >
+              <h3 className="text-lg font-semibold">{item.name}</h3>
+              {item.notes && <p className="text-gray-600">{item.notes}</p>}
+              {item.link && (
+                <a
+                  href={item.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:underline flex items-center mt-2"
+                >
+                  <LinkIcon className="w-4 h-4 mr-1" />
+                  View Item
+                </a>
+              )}
+            </div>
+
+            <div className="flex items-center gap-4 sm:flex-col sm:items-end">
+              {showPurchased && (
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={item.purchased}
+                    onCheckedChange={() => togglePurchased(item.id)}
+                  />
+                  <span className="text-sm text-gray-500">Purchased</span>
+                </div>
+              )}
+              {currentWishlist?.user_id === currentUser && (
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  onClick={() => removeItem(item.id)}
+                  className="absolute top-1 right-1 sm:static sm:inset-auto rounded-full"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </CardContent>
@@ -219,6 +225,12 @@ function ItemList({
       ))}
     </div>
   )
+}
+
+type RealtimePayload = {
+  new: Item & { wishlist_id: string; user_id: string }
+  old: Item & { wishlist_id: string; user_id: string }
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE'
 }
 
 export default function WishList() {
@@ -311,6 +323,7 @@ export default function WishList() {
           .from('items')
           .select('*')
           .eq('wishlist_id', currentWishlist.id)
+          .order('created_at', { ascending: false })
         if (error) {
           console.error('Error fetching items:', error.message)
         } else {
@@ -322,15 +335,67 @@ export default function WishList() {
     }
   }, [currentWishlist])
 
+  useEffect(() => {
+    if (!currentWishlist) return
+
+    console.log('Subscribing to items for wishlist', currentWishlist.id)
+
+    const channel = supabase
+      .channel(`items:wishlist_id=eq.${currentWishlist.id}`)
+      .on<Item>(
+        'postgres_changes' as 'system',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'items',
+          filter: `wishlist_id=eq.${currentWishlist.id}`,
+        },
+        (payload: RealtimePayload) => {
+          console.log('Change received!', payload)
+          switch (payload.eventType) {
+            case 'INSERT':
+              if (payload.new.user_id !== currentUser) {
+                toast.info(`New item added: ${payload.new.name}`)
+                setItems((items) => [payload.new as Item, ...items])
+              }
+              break
+            case 'DELETE':
+              setItems((items) =>
+                items.filter((item) => item.id !== payload.old.id)
+              )
+              break
+            case 'UPDATE':
+              setItems((items) =>
+                items.map((item) =>
+                  item.id === payload.new.id ? (payload.new as Item) : item
+                )
+              )
+              break
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      if (channel) {
+        console.log('Unsubscribing from items for wishlist', currentWishlist.id)
+
+        channel.unsubscribe()
+      }
+    }
+  }, [currentWishlist, currentUser])
+
   const addItem = async (item: Item) => {
     if (!currentWishlist) return
-    const { error } = await supabase
-      .from('items')
-      .insert([{ ...item, wishlist_id: currentWishlist.id }])
+    const newItem = {
+      ...item,
+      wishlist_id: currentWishlist.id,
+    }
+    const { error } = await supabase.from('items').insert([newItem])
     if (error) {
       console.error('Error adding item:', error.message)
     } else {
-      setItems([...items, item])
+      setItems([item, ...items])
     }
   }
 
