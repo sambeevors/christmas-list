@@ -40,6 +40,22 @@ type Wishlist = {
   user_id: string
 }
 
+const SHARED_WISHLISTS_KEY = 'shared_wishlists'
+
+function getSharedWishlists(): Wishlist[] {
+  if (typeof window === 'undefined') return []
+  const saved = localStorage.getItem(SHARED_WISHLISTS_KEY)
+  return saved ? JSON.parse(saved) : []
+}
+
+function saveSharedWishlist(wishlist: Wishlist) {
+  const current = getSharedWishlists()
+  if (!current.some((w) => w.id === wishlist.id)) {
+    const updated = [...current, wishlist]
+    localStorage.setItem(SHARED_WISHLISTS_KEY, JSON.stringify(updated))
+  }
+}
+
 async function fetchOgImage(url: string): Promise<string | null> {
   try {
     const res = await fetch(`/api/og-image?url=${encodeURIComponent(url)}`)
@@ -254,7 +270,7 @@ export default function WishList() {
 
       setCurrentUser(userData.user.id)
 
-      // First fetch user's own wishlists
+      // Fetch user's own wishlists
       const { data: ownWishlists, error } = await supabase
         .from('wishlists')
         .select('*')
@@ -265,12 +281,19 @@ export default function WishList() {
         return
       }
 
+      // Get shared wishlists from localStorage
+      const sharedWishlists = getSharedWishlists()
+
       const wishlistId = searchParams.get('wishlist')
 
-      // If there's a wishlist ID in the URL and it's not in the user's wishlists
-      if (wishlistId && !ownWishlists?.find((w) => w.id === wishlistId)) {
+      // If there's a wishlist ID in the URL and it's not in the user's wishlists or shared wishlists
+      if (
+        wishlistId &&
+        !ownWishlists?.find((w) => w.id === wishlistId) &&
+        !sharedWishlists.find((w) => w.id === wishlistId)
+      ) {
         // Fetch the shared wishlist
-        const { data: sharedWishlists, error: sharedError } = await supabase
+        const { data: newSharedWishlists, error: sharedError } = await supabase
           .from('wishlists')
           .select('*')
           .eq('id', wishlistId)
@@ -280,31 +303,30 @@ export default function WishList() {
           return
         }
 
-        const sharedWishlist = sharedWishlists?.[0]
+        const sharedWishlist = newSharedWishlists?.[0]
         if (!sharedWishlist) {
           console.error('Wishlist not found')
           router.push('/create-wishlist')
           return
         }
 
-        // Combine own wishlists with the shared wishlist
-        const allWishlists = [
-          ...ownWishlists,
-          {
-            ...sharedWishlist,
-            name: `${sharedWishlist.name} (Shared)`,
-          },
-        ]
-        setWishlists(allWishlists)
-        setCurrentWishlist(sharedWishlist)
-        return
+        // Save the new shared wishlist to localStorage
+        const markedSharedWishlist = {
+          ...sharedWishlist,
+          name: `${sharedWishlist.name} (Shared)`,
+        }
+        saveSharedWishlist(markedSharedWishlist)
+        sharedWishlists.push(markedSharedWishlist)
       }
 
-      // If no shared wishlist or no wishlist ID in URL
-      setWishlists(ownWishlists || [])
+      // Combine own wishlists with all shared wishlists
+      const allWishlists = [...ownWishlists, ...sharedWishlists]
+      setWishlists(allWishlists)
+
+      // Set current wishlist based on URL parameter or default to first wishlist
       const defaultWishlist = wishlistId
-        ? ownWishlists?.find((w) => w.id === wishlistId)
-        : ownWishlists?.[0]
+        ? allWishlists.find((w) => w.id === wishlistId)
+        : allWishlists[0]
 
       if (!defaultWishlist) {
         router.push('/create-wishlist')
