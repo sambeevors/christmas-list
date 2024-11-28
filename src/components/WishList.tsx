@@ -242,51 +242,62 @@ export default function WishList() {
 
       setCurrentUser(userData.user.id)
 
-      const { data, error } = await supabase
+      // First fetch user's own wishlists
+      const { data: ownWishlists, error } = await supabase
         .from('wishlists')
         .select('*')
         .eq('user_id', userData.user.id)
 
       if (error) {
         console.error('Error fetching wishlists:', error.message)
-      } else {
-        const wishlistId = searchParams.get('wishlist')
-        let currentWishlistData =
-          data?.find((w) => w.id === wishlistId) || data?.[0]
+        return
+      }
 
-        if (wishlistId && !currentWishlistData) {
-          // Fetch the wishlist details if it's not in the list
-          const { data: wishlistData, error: wishlistError } = await supabase
-            .from('wishlists')
-            .select('*')
-            .eq('id', wishlistId)
-            .single()
+      const wishlistId = searchParams.get('wishlist')
 
-          if (wishlistError) {
-            console.error('Error fetching wishlist:', wishlistError.message)
-            router.push('/create-wishlist')
-            return
-          }
+      // If there's a wishlist ID in the URL and it's not in the user's wishlists
+      if (wishlistId && !ownWishlists?.find((w) => w.id === wishlistId)) {
+        // Fetch the shared wishlist
+        const { data: sharedWishlists, error: sharedError } = await supabase
+          .from('wishlists')
+          .select('*')
+          .eq('id', wishlistId)
 
-          if (wishlistData) {
-            setWishlists(() => [
-              ...data,
-              {
-                ...wishlistData,
-                name: wishlistData.name + ' (Shared)',
-              },
-            ])
-            currentWishlistData = wishlistData
-          }
-        } else {
-          setWishlists(data || [])
+        if (sharedError) {
+          console.error('Error fetching shared wishlist:', sharedError.message)
+          return
         }
 
-        if (!currentWishlistData) {
+        const sharedWishlist = sharedWishlists?.[0]
+        if (!sharedWishlist) {
+          console.error('Wishlist not found')
           router.push('/create-wishlist')
-        } else {
-          setCurrentWishlist(currentWishlistData)
+          return
         }
+
+        // Combine own wishlists with the shared wishlist
+        const allWishlists = [
+          ...ownWishlists,
+          {
+            ...sharedWishlist,
+            name: `${sharedWishlist.name} (Shared)`,
+          },
+        ]
+        setWishlists(allWishlists)
+        setCurrentWishlist(sharedWishlist)
+        return
+      }
+
+      // If no shared wishlist or no wishlist ID in URL
+      setWishlists(ownWishlists || [])
+      const defaultWishlist = wishlistId
+        ? ownWishlists?.find((w) => w.id === wishlistId)
+        : ownWishlists?.[0]
+
+      if (!defaultWishlist) {
+        router.push('/create-wishlist')
+      } else {
+        setCurrentWishlist(defaultWishlist)
       }
     }
 
