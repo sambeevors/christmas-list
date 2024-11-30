@@ -95,7 +95,6 @@ function AddItemForm({ addItem }: { addItem: (item: Item) => void }) {
       og_image: ogImage || undefined,
     }
     addItem(newItem)
-    toast.success(`${data.name} added to your wish list`)
     reset()
   }
 
@@ -376,9 +375,9 @@ export default function WishList() {
           console.log('Change received!', payload)
           switch (payload.eventType) {
             case 'INSERT':
+              setItems((items) => [payload.new as Item, ...items])
               if (payload.new.user_id !== currentUser) {
                 toast.info(`New item added: ${payload.new.name}`)
-                setItems((items) => [payload.new as Item, ...items])
               }
               break
             case 'DELETE':
@@ -416,8 +415,7 @@ export default function WishList() {
     const { error } = await supabase.from('items').insert([newItem])
     if (error) {
       console.error('Error adding item:', error.message)
-    } else {
-      setItems([item, ...items])
+      toast.error('Failed to add item')
     }
   }
 
@@ -490,6 +488,7 @@ export default function WishList() {
           onValueChange={(id) => {
             const selectedWishlist = wishlists.find((w) => w.id === id)
             setCurrentWishlist(selectedWishlist || null)
+            setShowPurchased(false)
           }}
           value={currentWishlist?.id ?? wishlists[0]?.id}
         >
@@ -527,14 +526,16 @@ export default function WishList() {
             {currentWishlist?.name}
           </h2>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-            <div className="flex items-center space-x-2">
-              <Switch
-                checked={showPurchased}
-                onCheckedChange={handleShowPurchasedChange}
-                id="show-purchased"
-              />
-              <Label htmlFor="show-purchased">Show purchased items</Label>
-            </div>
+            {currentWishlist?.user_id !== currentUser && (
+              <div className="flex items-center space-x-2">
+                <Switch
+                  checked={showPurchased}
+                  onCheckedChange={handleShowPurchasedChange}
+                  id="show-purchased"
+                />
+                <Label htmlFor="show-purchased">Show purchased items</Label>
+              </div>
+            )}
             <Button onClick={shareList}>
               <Share2 className="w-4 h-4" />
               Share List
