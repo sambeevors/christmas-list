@@ -2,13 +2,12 @@ import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
-import Snow from '@/components/Snow'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Christmas Wish List',
-  description: 'Create and share your Christmas wish list',
+  title: 'Wish List',
+  description: 'Create and share your wish lists for any occasion',
 }
 
 export default function RootLayout({
@@ -23,7 +22,6 @@ export default function RootLayout({
           {children}
         </main>
         <Toaster />
-        <Snow />
       </body>
     </html>
   )
