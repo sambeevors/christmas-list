@@ -1,7 +1,7 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -147,7 +147,7 @@ function Item({
       <CardContent className="p-4">
         <div className="flex flex-col sm:flex-row sm:items-start gap-4 relative">
           {item.og_image ? (
-            <div className="w-full sm:w-24 h-48 sm:h-24 relative overflow-hidden rounded-md flex-shrink-0">
+            <div className="w-full sm:w-24 h-48 sm:h-24 relative overflow-hidden rounded-md shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={item.og_image}
@@ -156,14 +156,14 @@ function Item({
               />
             </div>
           ) : (
-            <div className="w-full sm:w-24 h-48 sm:h-24 bg-gray-200 rounded-md flex items-center justify-center flex-shrink-0">
+            <div className="w-full sm:w-24 h-48 sm:h-24 bg-gray-200 rounded-md flex items-center justify-center shrink-0">
               <span className="text-gray-500">No Image</span>
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row flex-grow gap-4 justify-between">
+          <div className="flex flex-col sm:flex-row grow gap-4 justify-between">
             <div
-              className={`flex-grow ${
+              className={`grow ${
                 item.purchased && showPurchased ? 'line-through' : ''
               }`}
             >
@@ -482,82 +482,86 @@ export default function WishList() {
 
   return (
     <div className="w-full">
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold mb-6">Wish List</h1>
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
-          <Select
-            onValueChange={(id) => {
-              const selectedWishlist = wishlists.find((w) => w.id === id)
-              setCurrentWishlist(selectedWishlist || null)
-              setShowPurchased(false)
-            }}
-            value={currentWishlist?.id ?? wishlists[0]?.id}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select Wishlist" />
-            </SelectTrigger>
-            <SelectContent>
-              {wishlists.map((wishlist) => (
-                <SelectItem key={wishlist.id} value={wishlist.id}>
-                  {wishlist.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button asChild className="w-full sm:w-auto sm:px-2.5">
-            <Link href="/create-wishlist">
-              <Plus className="w-4 h-4" />
-              <span className="sm:sr-only">Create New Wishlist</span>
-            </Link>
-          </Button>
-        </div>
-        <Tabs defaultValue="view">
-          <TabsList className="mb-4 w-full">
-            <TabsTrigger value="view" className="flex-grow">
-              View
-            </TabsTrigger>
-            {currentWishlist?.user_id === currentUser && (
-              <TabsTrigger value="edit" className="flex-grow">
-                Edit
+      <Card>
+        <CardHeader>
+          <h1 className="text-3xl font-bold">Wish List</h1>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
+            <Select
+              onValueChange={(id) => {
+                const selectedWishlist = wishlists.find((w) => w.id === id)
+                setCurrentWishlist(selectedWishlist || null)
+                setShowPurchased(false)
+              }}
+              value={currentWishlist?.id ?? wishlists[0]?.id}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select Wishlist" />
+              </SelectTrigger>
+              <SelectContent>
+                {wishlists.map((wishlist) => (
+                  <SelectItem key={wishlist.id} value={wishlist.id}>
+                    {wishlist.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button asChild className="w-full sm:w-auto sm:px-2.5">
+              <Link href="/create-wishlist">
+                <Plus className="w-4 h-4" />
+                <span className="sm:sr-only">Create New Wishlist</span>
+              </Link>
+            </Button>
+          </div>
+          <Tabs defaultValue="view">
+            <TabsList className="mb-4 w-full">
+              <TabsTrigger value="view" className="grow">
+                View
               </TabsTrigger>
-            )}
-          </TabsList>
-          <TabsContent value="view">
-            <h2 className="text-lg font-semibold mb-2">
-              {currentWishlist?.name}
-            </h2>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-              {currentWishlist?.user_id !== currentUser && (
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    checked={showPurchased}
-                    onCheckedChange={handleShowPurchasedChange}
-                    id="show-purchased"
-                  />
-                  <Label htmlFor="show-purchased">Show purchased items</Label>
-                </div>
+              {currentWishlist?.user_id === currentUser && (
+                <TabsTrigger value="edit" className="grow">
+                  Edit
+                </TabsTrigger>
               )}
-              <Button onClick={shareList}>
-                <Share2 className="w-4 h-4" />
-                Share List
-              </Button>
-            </div>
-            <ItemList
-              items={items}
-              togglePurchased={togglePurchased}
-              removeItem={removeItem}
-              showPurchased={showPurchased}
-              currentWishlist={currentWishlist}
-              currentUser={currentUser}
-            />
-          </TabsContent>
-          {currentWishlist?.user_id === currentUser && (
-            <TabsContent value="edit">
-              <AddItemForm addItem={addItem} />
+            </TabsList>
+            <TabsContent value="view">
+              <h2 className="text-lg font-semibold mb-2">
+                {currentWishlist?.name}
+              </h2>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                {currentWishlist?.user_id !== currentUser && (
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      checked={showPurchased}
+                      onCheckedChange={handleShowPurchasedChange}
+                      id="show-purchased"
+                    />
+                    <Label htmlFor="show-purchased">Show purchased items</Label>
+                  </div>
+                )}
+                <Button onClick={shareList}>
+                  <Share2 className="w-4 h-4" />
+                  Share List
+                </Button>
+              </div>
+              <ItemList
+                items={items}
+                togglePurchased={togglePurchased}
+                removeItem={removeItem}
+                showPurchased={showPurchased}
+                currentWishlist={currentWishlist}
+                currentUser={currentUser}
+              />
             </TabsContent>
-          )}
-        </Tabs>
-      </div>
+            {currentWishlist?.user_id === currentUser && (
+              <TabsContent value="edit">
+                <AddItemForm addItem={addItem} />
+              </TabsContent>
+            )}
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   )
 }
