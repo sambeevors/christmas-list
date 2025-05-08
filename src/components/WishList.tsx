@@ -48,14 +48,6 @@ function getSharedWishlists(): Wishlist[] {
   return saved ? JSON.parse(saved) : []
 }
 
-function saveSharedWishlist(wishlist: Wishlist) {
-  const current = getSharedWishlists()
-  if (!current.some((w) => w.id === wishlist.id)) {
-    const updated = [...current, wishlist]
-    localStorage.setItem(SHARED_WISHLISTS_KEY, JSON.stringify(updated))
-  }
-}
-
 async function fetchOgImage(url: string): Promise<string | null> {
   try {
     const res = await fetch(`/api/og-image?url=${encodeURIComponent(url)}`)
@@ -147,7 +139,7 @@ function Item({
       <CardContent className="p-4">
         <div className="flex flex-col sm:flex-row sm:items-start gap-4 relative">
           {item.og_image ? (
-            <div className="w-full sm:w-24 h-48 sm:h-24 relative overflow-hidden rounded-md shrink-0">
+            <div className="w-full sm:w-24 h-48 sm:h-24 relative overflow-hidden rounded-md shrink-0 bg-background">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={item.og_image}
@@ -259,21 +251,43 @@ export default function WishList() {
 
   useEffect(() => {
     const fetchUserAndWishlists = async () => {
-      const { data: userData, error: userError } = await supabase.auth.getUser()
-      if (userError || !userData?.user) {
-        console.error('User not authenticated:', userError?.message)
+      const { data: userData } = await supabase.auth.getUser()
+      const currentUserId = userData?.user?.id || null
+      setCurrentUser(currentUserId)
+
+      const wishlistId = searchParams.get('wishlist')
+
+      // If there's a wishlist ID in the URL, fetch it regardless of auth status
+      if (wishlistId) {
+        const { data: sharedWishlist, error: sharedError } = await supabase
+          .from('wishlists')
+          .select('*')
+          .eq('id', wishlistId)
+          .single()
+
+        if (sharedError) {
+          console.error('Error fetching shared wishlist:', sharedError.message)
+          return
+        }
+
+        if (sharedWishlist) {
+          setCurrentWishlist(sharedWishlist)
+          return
+        }
+      }
+
+      // If no wishlist ID in URL and user is not authenticated, redirect to auth
+      if (!currentUserId) {
         const currentUrl = `${window.location.pathname}${window.location.search}`
         router.push(`/auth?redirect=${encodeURIComponent(currentUrl)}`)
         return
       }
 
-      setCurrentUser(userData.user.id)
-
       // Fetch user's own wishlists
       const { data: ownWishlists, error } = await supabase
         .from('wishlists')
         .select('*')
-        .eq('user_id', userData.user.id)
+        .eq('user_id', currentUserId)
 
       if (error) {
         console.error('Error fetching wishlists:', error.message)
@@ -283,54 +297,15 @@ export default function WishList() {
       // Get shared wishlists from localStorage
       const sharedWishlists = getSharedWishlists()
 
-      const wishlistId = searchParams.get('wishlist')
-
-      // If there's a wishlist ID in the URL and it's not in the user's wishlists or shared wishlists
-      if (
-        wishlistId &&
-        !ownWishlists?.find((w) => w.id === wishlistId) &&
-        !sharedWishlists.find((w) => w.id === wishlistId)
-      ) {
-        // Fetch the shared wishlist
-        const { data: newSharedWishlists, error: sharedError } = await supabase
-          .from('wishlists')
-          .select('*')
-          .eq('id', wishlistId)
-
-        if (sharedError) {
-          console.error('Error fetching shared wishlist:', sharedError.message)
-          return
-        }
-
-        const sharedWishlist = newSharedWishlists?.[0]
-        if (!sharedWishlist) {
-          console.error('Wishlist not found')
-          router.push('/create-wishlist')
-          return
-        }
-
-        // Save the new shared wishlist to localStorage
-        const markedSharedWishlist = {
-          ...sharedWishlist,
-          name: `${sharedWishlist.name} (Shared)`,
-        }
-        saveSharedWishlist(markedSharedWishlist)
-        sharedWishlists.push(markedSharedWishlist)
-      }
-
       // Combine own wishlists with all shared wishlists
       const allWishlists = [...ownWishlists, ...sharedWishlists]
       setWishlists(allWishlists)
 
-      // Set current wishlist based on URL parameter or default to first wishlist
-      const defaultWishlist = wishlistId
-        ? allWishlists.find((w) => w.id === wishlistId)
-        : allWishlists[0]
-
-      if (!defaultWishlist) {
-        router.push('/create-wishlist')
+      // Set current wishlist to first wishlist
+      if (allWishlists.length > 0) {
+        setCurrentWishlist(allWishlists[0])
       } else {
-        setCurrentWishlist(defaultWishlist)
+        router.push('/create-wishlist')
       }
     }
 
@@ -487,33 +462,35 @@ export default function WishList() {
           <h1 className="text-3xl font-bold">Wish List</h1>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
-            <Select
-              onValueChange={(id) => {
-                const selectedWishlist = wishlists.find((w) => w.id === id)
-                setCurrentWishlist(selectedWishlist || null)
-                setShowPurchased(false)
-              }}
-              value={currentWishlist?.id ?? wishlists[0]?.id}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select Wishlist" />
-              </SelectTrigger>
-              <SelectContent>
-                {wishlists.map((wishlist) => (
-                  <SelectItem key={wishlist.id} value={wishlist.id}>
-                    {wishlist.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button asChild className="w-full sm:w-auto sm:px-2.5">
-              <Link href="/create-wishlist">
-                <Plus className="w-4 h-4" />
-                <span className="sm:sr-only">Create New Wishlist</span>
-              </Link>
-            </Button>
-          </div>
+          {currentUser && (
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
+              <Select
+                onValueChange={(id) => {
+                  const selectedWishlist = wishlists.find((w) => w.id === id)
+                  setCurrentWishlist(selectedWishlist || null)
+                  setShowPurchased(false)
+                }}
+                value={currentWishlist?.id ?? wishlists[0]?.id}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Wishlist" />
+                </SelectTrigger>
+                <SelectContent>
+                  {wishlists.map((wishlist) => (
+                    <SelectItem key={wishlist.id} value={wishlist.id}>
+                      {wishlist.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button asChild className="w-full sm:w-auto sm:px-2.5">
+                <Link href="/create-wishlist">
+                  <Plus className="w-4 h-4" />
+                  <span className="sm:sr-only">Create New Wishlist</span>
+                </Link>
+              </Button>
+            </div>
+          )}
           <Tabs defaultValue="view">
             <TabsList className="mb-4 w-full">
               <TabsTrigger value="view" className="grow">
